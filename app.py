@@ -301,9 +301,3 @@ if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
 
 
-cd "D:\Atos 29شهریور\atos"
-git init
-git remote add origin https://github.com/arminterry/atos-git.git
-git add .
-git commit -m "Initial commit with Flask code"
-git push -u --force origin main
