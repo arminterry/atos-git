@@ -1,6 +1,8 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 
 algorithms=[
     [1, 8, 27, 64, 125, 216, 343, 512, 729, 1000, 1331, 1728, 2197, 2744, 3375, 4096, 4913, 5832, 6859, 8000, 9261, 10648, 12167, 13824, 15625, 17576, 19683, 21952, 24389, 27000, 29791, 32768, 35937, 39304, 42875, 46656, 50653, 54872, 59319, 64000, 68921, 74088, 79507],
@@ -287,7 +289,7 @@ names=[
 
 @app.route("/search", methods=["GET"])
 def search():
-    query = request.args.get("q", "")
+    query = request.args.get("q", "").replace(" "," ")
     for i, seq in enumerate(algorithms):
         if query in str(seq).replace(" ", ""):
             return jsonify({"sequence": seq, "name": names[i]})
@@ -298,6 +300,6 @@ def search():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run()
 
 
