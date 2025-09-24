@@ -1,8 +1,9 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import json
+import os
 
-app = Flask(names)   # ✅ was wrong before
+app = Flask(__name__)
 CORS(app)
 algorithms=[
     [1, 8, 27, 64, 125, 216, 343, 512, 729, 1000, 1331, 1728, 2197, 2744, 3375, 4096, 4913, 5832, 6859, 8000, 9261, 10648, 12167, 13824, 15625, 17576, 19683, 21952, 24389, 27000, 29791, 32768, 35937, 39304, 42875, 46656, 50653, 54872, 59319, 64000, 68921, 74088, 79507],
@@ -291,16 +292,14 @@ names=[
 def search():
     query = request.args.get("q", "").strip()
 
-    # ✅ Try to parse user input into a list of ints
     try:
         if query.startswith("[") and query.endswith("]"):
-            user_seq = json.loads(query)  # e.g. "[1,2,3]"
+            user_seq = json.loads(query)
         else:
             user_seq = [int(x) for x in query.split(",") if x]
     except Exception:
         return jsonify({"error": "Invalid input"}), 400
 
-    # ✅ Check if user_seq is a subsequence of any algorithm
     for i, seq in enumerate(algorithms):
         for j in range(len(seq) - len(user_seq) + 1):
             if seq[j:j+len(user_seq)] == user_seq:
@@ -308,8 +307,8 @@ def search():
 
     return jsonify({"error": "Not found"})
 
-
-if name == "main":   # ✅ fixed
-    app.run(host="0.0.0.0", port=5000, debug=True)
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
 
 
