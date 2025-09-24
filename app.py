@@ -1,9 +1,9 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+import json
 
-app = Flask(__name__)
+app = Flask(name)   # ✅ was wrong before
 CORS(app)
-
 algorithms=[
     [1, 8, 27, 64, 125, 216, 343, 512, 729, 1000, 1331, 1728, 2197, 2744, 3375, 4096, 4913, 5832, 6859, 8000, 9261, 10648, 12167, 13824, 15625, 17576, 19683, 21952, 24389, 27000, 29791, 32768, 35937, 39304, 42875, 46656, 50653, 54872, 59319, 64000, 68921, 74088, 79507],
     [1, 4, 9, 16, 25, 36, 49, 64, 81, 100, 121, 144, 169, 196, 225, 256, 289, 324, 361, 400, 441, 484, 529, 576, 625, 676, 729, 784, 841, 900, 961, 1024, 1089, 1156, 1225, 1296, 1369, 1444, 1521, 1600, 1681, 1764, 1849, 1936, 2025, 2116, 2209, 2304, 2401, 2500],
@@ -289,17 +289,27 @@ names=[
 
 @app.route("/search", methods=["GET"])
 def search():
-    query = request.args.get("q", "").replace(" "," ")
+    query = request.args.get("q", "").strip()
+
+    # ✅ Try to parse user input into a list of ints
+    try:
+        if query.startswith("[") and query.endswith("]"):
+            user_seq = json.loads(query)  # e.g. "[1,2,3]"
+        else:
+            user_seq = [int(x) for x in query.split(",") if x]
+    except Exception:
+        return jsonify({"error": "Invalid input"}), 400
+
+    # ✅ Check if user_seq is a subsequence of any algorithm
     for i, seq in enumerate(algorithms):
-        if query in str(seq).replace(" ", ""):
-            return jsonify({"sequence": seq, "name": names[i]})
-    for i, name in enumerate(names):
-        if query in str(name):
-            return jsonify({"sequence": algorithms[i], "name": name})
+        for j in range(len(seq) - len(user_seq) + 1):
+            if seq[j:j+len(user_seq)] == user_seq:
+                return jsonify({"sequence": seq, "name": names[i]})
+
     return jsonify({"error": "Not found"})
 
 
-if __name__ == "__main__":
-    app.run()
+if name == "main":   # ✅ fixed
+    app.run(host="0.0.0.0", port=5000, debug=True)
 
 
