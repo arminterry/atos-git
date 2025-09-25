@@ -292,23 +292,30 @@ names=[
 def search():
     query = request.args.get("q", "").strip()
 
-    try:
-        if query.startswith("[") and query.endswith("]"):
-            user_seq = json.loads(query)
-        else:
-            user_seq = [int(x) for x in query.split(",") if x]
-    except Exception:
-        return jsonify({"error": "Invalid input"}), 400
+    # If input looks like numbers → parse as sequence
+    if any(c.isdigit() for c in query):
+        try:
+            if query.startswith("[") and query.endswith("]"):
+                user_seq = json.loads(query)
+            else:
+                user_seq = [int(x) for x in query.split(",") if x]
+        except Exception:
+            return jsonify({"error": "Invalid numeric input"}), 400
 
-    for i, seq in enumerate(algorithms):
-        for j in range(len(seq) - len(user_seq) + 1):
-            if seq[j:j+len(user_seq)] == user_seq:
-                return jsonify({"sequence": seq, "name": names[i]})
+        for i, seq in enumerate(algorithms):
+            for j in range(len(seq) - len(user_seq) + 1):
+                if seq[j:j+len(user_seq)] == user_seq:
+                    return jsonify({"sequence": seq, "name": names[i]})
 
-    return jsonify({"error": "Not found"})
+        return jsonify({"error": "Not found"})
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    # Otherwise treat as name search
+    else:
+        for i, name in enumerate(names):
+            if query.lower() in name[0].lower():
+                return jsonify({"sequence": algorithms[i], "name": names[i]})
+
+        return jsonify({"error": "Name not found"})
+
 
 
