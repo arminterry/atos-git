@@ -318,4 +318,179 @@ def search():
         return jsonify({"error": "Name not found"})
 
 
+# ============================================================
+# ATOS FILM MODULE — DEMO MODE (40 films across genres)
+# Fingerprints are generated, not scanned. Label as demo.
+# ============================================================
 
+import numpy as np
+
+def _make_fp(seed, shape, noise=0.12, length=100):
+    """Generate a demo fingerprint with a genre-specific base shape."""
+    rng = np.random.default_rng(seed)
+    t = np.linspace(0, 1, length)
+
+    if shape == "action":
+        base = 0.7 + 0.3*np.sin(2*np.pi*t*6) + 0.2*np.sin(2*np.pi*t*15)
+    elif shape == "comedy":
+        base = 0.3 + 0.4*np.abs(np.sin(2*np.pi*t*4))
+    elif shape == "drama":
+        base = -0.2 + 0.8*np.sin(np.pi*t)
+    elif shape == "romance":
+        base = 0.1 + 0.6*np.sin(np.pi*t) - 0.3*np.sin(2*np.pi*t*0.5)
+    elif shape == "horror":
+        base = -0.3 + 0.9*((t > 0.5) & (t < 0.7)) + 0.5*(t > 0.9)
+    elif shape == "scifi":
+        base = 0.2 + 0.4*np.sin(2*np.pi*t*2) + 0.3*(t > 0.7)
+    elif shape == "animation":
+        base = 0.4 + 0.4*np.abs(np.sin(2*np.pi*t*5))
+    elif shape == "thriller":
+        base = -0.5 + 1.5*t**2
+    elif shape == "documentary":
+        base = 0.0 + 0.15*np.sin(2*np.pi*t*1)
+    elif shape == "musical":
+        base = 0.3 + 0.6*np.sin(2*np.pi*t*7)
+    else:
+        base = np.zeros(length)
+
+    fp = base + rng.normal(0, noise, length)
+    fp = fp / (np.max(np.abs(fp)) or 1.0)
+    return [round(float(x), 3) for x in fp]
+
+
+# 40 films across 10 genres (4 per genre)
+_FILM_SEEDS = [
+    # (title, year, genre, seed)
+    ("Die Hard",                   1988, "action",      101),
+    ("Mad Max: Fury Road",         2015, "action",      102),
+    ("John Wick",                  2014, "action",      103),
+    ("The Matrix",                 1999, "action",      104),
+
+    ("The Grand Budapest Hotel",   2014, "comedy",      201),
+    ("Superbad",                   2007, "comedy",      202),
+    ("Groundhog Day",              1993, "comedy",      203),
+    ("Airplane!",                  1980, "comedy",      204),
+
+    ("The Godfather",              1972, "drama",       301),
+    ("Schindler's List",           1993, "drama",       302),
+    ("Forrest Gump",               1994, "drama",       303),
+    ("The Shawshank Redemption",   1994, "drama",       304),
+
+    ("Amélie",                     2001, "romance",     401),
+    ("Before Sunrise",             1995, "romance",     402),
+    ("Pride & Prejudice",          2005, "romance",     403),
+    ("La La Land",                 2016, "romance",     404),
+
+    ("The Shining",                1980, "horror",      501),
+    ("Get Out",                    2017, "horror",      502),
+    ("Hereditary",                 2018, "horror",      503),
+    ("Psycho",                     1960, "horror",      504),
+
+    ("Inception",                  2010, "scifi",       601),
+    ("Blade Runner 2049",          2017, "scifi",       602),
+    ("Interstellar",               2014, "scifi",       603),
+    ("Arrival",                    2016, "scifi",       604),
+
+    ("Spirited Away",              2001, "animation",   701),
+    ("Toy Story",                  1995, "animation",   702),
+    ("Up",                         2009, "animation",   703),
+    ("Spider-Man: Into the Spider-Verse", 2018, "animation", 704),
+
+    ("Se7en",                      1995, "thriller",    801),
+    ("Gone Girl",                  2014, "thriller",    802),
+    ("Parasite",                   2019, "thriller",    803),
+    ("No Country for Old Men",     2007, "thriller",    804),
+
+    ("Planet Earth",               2006, "documentary", 901),
+    ("Free Solo",                  2018, "documentary", 902),
+    ("Jiro Dreams of Sushi",       2011, "documentary", 903),
+    ("Won't You Be My Neighbor?",  2018, "documentary", 904),
+
+    ("West Side Story",            1961, "musical",     1001),
+    ("Moulin Rouge!",              2001, "musical",     1002),
+    ("Chicago",                    2002, "musical",     1003),
+    ("Singin' in the Rain",        1952, "musical",     1004),
+]
+
+FILM_DB = [
+    {
+        "film_id": title.lower().replace(" ", "_").replace(":", "").replace("'", "").replace("&", "and").replace("!", "").replace("-", "_"),
+        "title":   title,
+        "year":    year,
+        "genre":   genre,
+        "combined": _make_fp(seed, genre),
+    }
+    for (title, year, genre, seed) in _FILM_SEEDS
+]
+
+
+def _resample(seq, target_len=100):
+    seq = np.array(seq, dtype=float)
+    if len(seq) == 0:
+        return np.zeros(target_len)
+    if len(seq) == target_len:
+        return seq
+    return np.interp(np.linspace(0, 1, target_len),
+                     np.linspace(0, 1, len(seq)), seq)
+
+
+def _similarity(a, b):
+    return float(np.sqrt(np.mean((_resample(a) - _resample(b)) ** 2)))
+
+
+@app.route("/combine", methods=["POST"])
+def combine():
+    payload = request.get_json(force=True) or {}
+    text  = payload.get("text",  [])
+    audio = payload.get("audio", [])
+    video = payload.get("video", [])
+
+    if not text and not audio and not video:
+        np.random.seed(42)
+        demo = np.cumsum(np.random.randn(90) * 0.1)
+        demo = demo / (np.max(np.abs(demo)) or 1.0)
+        return jsonify({"combined": [round(float(x), 3) for x in demo],
+                        "length": 90, "mode": "demo"})
+
+    weights = payload.get("weights", {"text": 0.4, "audio": 0.3, "video": 0.3})
+    t = np.array(text,  dtype=float)
+    a = np.array(audio, dtype=float)
+    v = np.array(video, dtype=float)
+    L = min(len(t), len(a), len(v))
+    if L == 0:
+        return jsonify({"error": "empty channels"}), 400
+
+    def norm(x):
+        m = np.max(np.abs(x)) or 1.0
+        return x / m
+
+    combined = weights["text"] * norm(t[:L]) + weights["audio"] * norm(a[:L]) + weights["video"] * norm(v[:L])
+    return jsonify({"combined": [round(float(x), 3) for x in combined],
+                    "length": L, "mode": "real"})
+
+
+@app.route("/similar", methods=["POST"])
+def similar():
+    payload = request.get_json(force=True) or {}
+    query = payload.get("combined", [])
+    if not query:
+        return jsonify({"top": []})
+
+    results = []
+    for film in FILM_DB:
+        d = _similarity(query, film["combined"])
+        results.append({"film_id": film["film_id"], "title": film["title"],
+                        "year": film["year"], "genre": film.get("genre", ""),
+                        "distance": round(d, 4)})
+    results.sort(key=lambda x: x["distance"])
+    return jsonify({"top": results[:3]})
+
+
+@app.route("/films", methods=["GET"])
+def films():
+    return jsonify({"count": len(FILM_DB),
+                    "films": [{"id": f["film_id"], "title": f["title"],
+                               "year": f["year"], "genre": f.get("genre", "")}
+                              for f in FILM_DB]})
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
